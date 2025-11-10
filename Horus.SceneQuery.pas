@@ -43,7 +43,7 @@ begin
     LRef.A := AMesh.Vertices[LTriangle.VertexA];
     LRef.B := AMesh.Vertices[LTriangle.VertexB];
     LRef.C := AMesh.Vertices[LTriangle.VertexC];
-    LRef.Normal := CalculateSurfaceNormal(LRef.A, LRef.B, LRef.C);
+    LRef.Normal := CalculateSurfaceNormal(LRef.A, LRef.B, LRef.C).Normalized;
     LRef.OriginDistance := Dot(LRef.Normal, LRef.A);
     Inc(LOffset);
   end;
