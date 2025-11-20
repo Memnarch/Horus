@@ -106,7 +106,7 @@ var
 const
   CMaxBounces = 4;
 begin
-  Result := 0;
+  Result := CollectLight(Constants, AStart, ADirection, 0);
   LTravelDistance := 0;
   LOrigin := AStart;
   LRayDirection := ADirection;
@@ -134,9 +134,9 @@ end;
 
 procedure FragmentShader(const Constants: PTracerConstantInput; const APixel: PRGB32; const PSInput: PTracerFragmentInput);
 var
-  LRayDirection, LLowRayDirection, LHighRayDirection, LOrigin: TFloat3;
+  LRayDirection, LLowRayDirection, LHighRayDirection, LSuperlowRayDirection, LSuperHighRayDirection, LOrigin, LRayOrigin: TFloat3;
   LShadowColor, LSample: TRGB32;
-  LDirectLightIntensity, LTotalIntensity: Single;
+  LTotalIntensity: Single;
   LValue: Byte;
   i: Integer;
   LOffset: TFloat3;
@@ -145,10 +145,13 @@ var
   LSamples: Integer;
   LDirections: array[0..7] of TFloat3;
   LPotentialTangentA, LPotentialTangentB: TFloat3;
+  LTemp: Integer;
 const
   CLightColor: TRGB32 = (B: 255; G: 255; R: 255; A: 255);
   CShadowColor: TRGB32 = (B: 0; G: 0; R: 0; A: 255);
   CDebugShadowColor: TRGB32 = (B: 0; G: 255; R: 0; A: 255);
+  //Factor fixed to current testscene where 90 luxel represent 200 world units
+  COffsetFactor = 0;// 200/90/5;
 begin
   LShadowColor := CShadowColor;
 
@@ -165,16 +168,16 @@ begin
   LPotentialTangentB := Cross(PSInput.Normal, Float3(0, 1, 0));
   if LPotentialTangentA.Length > LPotentialTangentB.Length then
   begin
-    LNorth := LPotentialTangentA;
+    LNorth := LPotentialTangentA.Normalized;
   end
   else
   begin
-    LNorth := LPotentialTangentB;
+    LNorth := LPotentialTangentB.Normalized;
   end;
 
   LSouth := LNorth * -1;
   //BiNormal
-  LEast := Cross(LNorth, PSInput.Normal);
+  LEast := Cross(LNorth, PSInput.Normal).Normalized;
   LWest := LEast * -1;
 
   LNorthEast := (LNorth + LEast).Normalized;
@@ -193,22 +196,29 @@ begin
   LDirections[7] := LSouthWest;
 
   LOrigin := Adjust(PSInput.Position, PSInput.Normal);
-  LDirectLightIntensity := CollectLight(Constants, LOrigin, PSInput.Normal, 0);
+  LSamples := Length(LDirections) * 5 + 1;
   LTotalIntensity := PerformTrace(Constants, LOrigin, PSInput.Normal);
   for i := 0 to High(LDirections) do
   begin
     //move upwards
     LOffset := LDirections[i];
+    LRayOrigin := LOrigin + LOffset * COffsetFactor;
     LRayDirection := (PSInput.Normal + LOffset).Normalized;
     LLowRayDirection := (LOffset + LRayDirection).Normalized;
+    LSuperlowRayDirection := (LOffset + LLowRayDirection).Normalized;
     LHighRayDirection := (PSInput.Normal + LRayDirection).Normalized;
-    LTotalIntensity := LTotalIntensity + PerformTrace(Constants, LOrigin, LRayDirection);
-    LTotalIntensity := LTotalIntensity + PerformTrace(Constants, LOrigin, LLowRayDirection);
-    LTotalIntensity := LTotalIntensity + PerformTrace(Constants, LOrigin, LHighRayDirection);
+    LSuperHighRayDirection := (PSInput.Normal + LHighRayDirection).Normalized;
+    LTotalIntensity := LTotalIntensity + PerformTrace(Constants, LRayOrigin, LRayDirection);
+    LTotalIntensity := LTotalIntensity + PerformTrace(Constants, LRayOrigin, LSuperlowRayDirection);
+    LTotalIntensity := LTotalIntensity + PerformTrace(Constants, LRayOrigin, LLowRayDirection);
+    LTotalIntensity := LTotalIntensity + PerformTrace(Constants, LRayOrigin, LHighRayDirection);
+    LTotalIntensity := LTotalIntensity + PerformTrace(Constants, LRayOrigin, LSuperHighRayDirection);
   end;
-  LSamples := Length(LDirections) * 3 + 1;
-  LTotalIntensity := LTotalIntensity / LSamples + LDirectLightIntensity;
-  LValue := Trunc(LTotalIntensity / (1 + LTotalIntensity) * 255);
+
+  LTotalIntensity := (LTotalIntensity / LSamples);
+  LTotalIntensity := LTotalIntensity / (1 + LTotalIntensity);
+  LTemp := Trunc(LTotalIntensity * 255);
+  LValue := LTemp;
   LSample.B := LValue;
   LSample.G := LValue;
   LSample.R := LValue;
