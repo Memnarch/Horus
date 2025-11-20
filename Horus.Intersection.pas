@@ -6,7 +6,7 @@ uses
   Mundus.Math,
   Horus.Types;
 
-const Epsilon: Single = 1.19209e-07;
+//const Epsilon: Single = 1.19209e-07;
 //function RayTriangleIntersection(const ARayPosition: TFloat3; const ARayVector: TFloat3; const AV1, AV2, AV3: TFloat3; out AHitPos: TFloat3): Boolean;
 function RayTriangleIntersection(const ARayPosition: TFloat3; const ARayVector: TFloat3; const ATriangle: PTriangle; out AHitPos: TFloat3): Boolean;
 
@@ -37,6 +37,10 @@ var
 begin
   LDotRayVector := Dot(ATriangle.Normal, ARayVector);
   if Abs(LDotRayVector) < Epsilon then
+    Exit(False);
+
+  //skip backfaces
+  if LDotRayVector > 0 then
     Exit(False);
 
   LT := (ATriangle.OriginDistance - Dot(ATriangle.Normal, ARayPosition)) / LDotRayVector;

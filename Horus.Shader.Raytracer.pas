@@ -75,7 +75,7 @@ begin
   LDirection := Constants.Light - AOrigin;
   LMaxDistance := LDirection.Length;
   LDirection := LDirection.Normalized;
-//  if Dot(LDirection, ANormal) > 0 then
+  if Dot(ANormal, LDirection) > 0 then
   begin
     if not (Constants.Query.LineTrace(AOrigin, LDirection, LHit) and (LHit.Distance < LMaxDistance)) then
     begin
@@ -86,7 +86,7 @@ end;
 
 function Adjust(const APosition, ANormal: TFloat3): TFloat3;
 begin
-  Result := APosition + ANormal*0.001;
+  Result := APosition + ANormal*0.00014;
 end;
 
 function PerformTrace(const Constants: PTracerConstantInput; const AStart, ADirection: TFloat3): Single;
