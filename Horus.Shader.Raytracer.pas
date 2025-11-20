@@ -65,6 +65,12 @@ begin
   Result := ADirection - ANormal * (2 * Dot(ADirection, ANormal));
 end;
 
+function Influence(const ANormal, ADirection: TFloat3): Single;
+begin
+  Result := Dot(ANormal, ADirection);
+end;
+
+
 function CollectLight(const Constants: PTracerConstantInput; const AOrigin, ANormal: TFloat3; const APastTraveledDistance: Single): Single;
 var
   LDirection: TFloat3;
@@ -79,7 +85,7 @@ begin
   begin
     if not (Constants.Query.LineTrace(AOrigin, LDirection, LHit) and (LHit.Distance < LMaxDistance)) then
     begin
-      Result := Result + Intensity(2500000, APastTraveledDistance + LMaxDistance);
+      Result := Result + Influence(ANormal, LDirection) * Intensity(2000000, APastTraveledDistance + LMaxDistance);
     end;
   end;
 end;
@@ -95,8 +101,8 @@ var
   LOrigin, LRayDirection, LHitPosition: TFloat3;
   i: Integer;
   LHitInfo: THitInfo;
-  LBounces: Integer;
   LBounceIntensity: Single;
+  LTransportFactor: Single;
 const
   CMaxBounces = 4;
 begin
@@ -104,30 +110,25 @@ begin
   LTravelDistance := 0;
   LOrigin := AStart;
   LRayDirection := ADirection;
-  LBounces := 0;
   LBounceIntensity := 0;
+  LTransportFactor := 1;
   for i := 1 to CMaxBounces do
   begin
     if not Constants.Query.LineTrace(LOrigin, LRayDirection, LHitInfo) then
     begin
-      //if we escape the level, pickup some faint skylight
-      LBounceIntensity := LBounceIntensity + 0.4;
-      Inc(LBounces);
+      LBounceIntensity := LBounceIntensity + LTransportFactor * 0.5;
       Break;
     end;
 
     LHitPosition := Adjust(LHitInfo.Position, LHitInfo.Triangle.Normal);
     LTravelDistance := LTravelDistance + (LHitPosition - LOrigin).Length;
     LRayDirection := (LHitPosition - LOrigin).Normalized;
+
     LRayDirection := Reflect(LRayDirection, LHitInfo.Triangle.Normal);
     LOrigin := LHitPosition;
-
-    LBounceIntensity := LBounceIntensity + CollectLight(Constants, LHitPosition, LHitInfo.Triangle.Normal, 0);
-    Inc(LBounces);
+    LBounceIntensity := LBounceIntensity + LTransportFactor * CollectLight(Constants, LHitPosition, LHitInfo.Triangle.Normal, 0);
+    LTransportFactor := LTransportFactor * Influence(LRayDirection, LHitInfo.Triangle.Normal);
   end;
-
-  if LBounces > 0 then
-    LBounceIntensity := LBounceIntensity / LBounces;
   Result := Result + LBounceIntensity;
 end;
 
